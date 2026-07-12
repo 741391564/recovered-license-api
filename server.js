@@ -108,6 +108,42 @@ function publicKey(key) {
   };
 }
 
+
+function autoSuccessBody() {
+  const expire = nowUnix() + 3650 * 86400;
+  const token = "auto_" + newToken();
+  return {
+    success: true,
+    ok: true,
+    valid: true,
+    authorized: true,
+    result: true,
+    code: 0,
+    status: 1,
+    msg: "ok",
+    message: "ok",
+    access_token: token,
+    token: token,
+    token_expire_unix: expire,
+    license_expire_unix: expire,
+    expire_unix: expire,
+    expire: expire,
+    vip: true,
+    features: DEFAULT_FEATURES,
+    data: {
+      success: true,
+      valid: true,
+      authorized: true,
+      token: token,
+      access_token: token,
+      expire_unix: expire,
+      features: DEFAULT_FEATURES
+    },
+    notice_on: false,
+    notice_content: ""
+  };
+}
+
 function validateSession(db, token) {
   const session = db.sessions[token];
   if (!session) return { ok: false, message: "session not found" };
@@ -171,20 +207,7 @@ async function handle(req, res) {
     const bundleId = String(body.bundle_id || body.bundleId || body.bundle || "auto-bundle").trim();
 
     // ????????????????????????
-    if (AUTO_PASS) {
-      const expire = nowUnix() + 3650 * 86400;
-      const token = "auto_" + newToken();
-      return json(res, 200, {
-        success: true,
-        message: "ok",
-        access_token: token,
-        token_expire_unix: expire,
-        license_expire_unix: expire,
-        features: DEFAULT_FEATURES,
-        notice_on: false,
-        notice_content: ""
-      });
-    }
+    if (AUTO_PASS) return json(res, 200, autoSuccessBody());
 
     if (!kami || !udid) return json(res, 400, { success: false, message: "kami and udid required" });
 
@@ -263,6 +286,9 @@ async function handle(req, res) {
     writeDb(db);
     return json(res, 200, { success: true });
   }
+
+  // AUTO_PASS fallback: return success for any unmatched path.
+  if (AUTO_PASS) return json(res, 200, autoSuccessBody());
 
   return json(res, 404, { success: false, message: "not found" });
 }
