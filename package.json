@@ -1,0 +1,13 @@
+{
+  "name": "recovered-license-api",
+  "version": "1.0.0",
+  "description": "Clean replacement license/session API for recovered mobile client projects.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED"
+}
