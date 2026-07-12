@@ -5,6 +5,7 @@ const path = require("path");
 
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
+const AUTO_PASS = process.env.AUTO_PASS !== "0";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -165,9 +166,26 @@ async function handle(req, res) {
 
   if (req.method === "POST" && (url.pathname === "/api/v1/auth/verify" || url.pathname === "/verify")) {
     const body = await collectJson(req);
-    const kami = String(body.kami || body.card || body.license || "").trim();
-    const udid = String(body.udid || body.device_id || "").trim();
-    const bundleId = String(body.bundle_id || body.bundleId || "").trim();
+    const kami = String(body.kami || body.card || body.license || "AUTO-PASS").trim();
+    const udid = String(body.udid || body.device_id || body.device || req.headers["x-device-id"] || "auto-device").trim();
+    const bundleId = String(body.bundle_id || body.bundleId || body.bundle || "auto-bundle").trim();
+
+    // ????????????????????????
+    if (AUTO_PASS) {
+      const expire = nowUnix() + 3650 * 86400;
+      const token = "auto_" + newToken();
+      return json(res, 200, {
+        success: true,
+        message: "ok",
+        access_token: token,
+        token_expire_unix: expire,
+        license_expire_unix: expire,
+        features: DEFAULT_FEATURES,
+        notice_on: false,
+        notice_content: ""
+      });
+    }
+
     if (!kami || !udid) return json(res, 400, { success: false, message: "kami and udid required" });
 
     const db = readDb();
@@ -210,6 +228,10 @@ async function handle(req, res) {
 
   if (req.method === "POST" && (url.pathname === "/api/v1/auth/heartbeat" || url.pathname === "/hb")) {
     const token = getBearer(req) || (await collectJson(req)).access_token || "";
+    if (AUTO_PASS || token.startsWith("auto_")) {
+      const expire = nowUnix() + 3650 * 86400;
+      return json(res, 200, { success: true, token_expire_unix: expire, license_expire_unix: expire });
+    }
     const db = readDb();
     const state = validateSession(db, token);
     if (!state.ok) return json(res, 401, { success: false, message: state.message });
@@ -224,6 +246,9 @@ async function handle(req, res) {
 
   if (req.method === "GET" && (url.pathname === "/api/v1/features" || url.pathname === "/feature")) {
     const token = getBearer(req) || url.searchParams.get("access_token") || "";
+    if (AUTO_PASS || token.startsWith("auto_")) {
+      return json(res, 200, { success: true, features: DEFAULT_FEATURES });
+    }
     const db = readDb();
     const state = validateSession(db, token);
     if (!state.ok) return json(res, 401, { success: false, message: state.message });
