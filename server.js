@@ -108,6 +108,7 @@ function publicKey(key) {
   };
 }
 
+
 function autoSuccessBody() {
   const expire = nowUnix() + 3650 * 86400;
   const expireMs = expire * 1000;
@@ -325,6 +326,7 @@ async function handle(req, res) {
     const udid = String(body.udid || body.device_id || body.device || req.headers["x-device-id"] || "auto-device").trim();
     const bundleId = String(body.bundle_id || body.bundleId || body.bundle || "auto-bundle").trim();
 
+    // ????????????????????????
     if (AUTO_PASS) return json(res, 200, autoSuccessBody());
 
     if (!kami || !udid) return json(res, 400, { success: false, message: "kami and udid required" });
@@ -405,6 +407,7 @@ async function handle(req, res) {
     return json(res, 200, { success: true });
   }
 
+  // AUTO_PASS fallback: return success for any unmatched path.
   if (AUTO_PASS) return json(res, 200, autoSuccessBody());
 
   return json(res, 404, { success: false, message: "not found" });
