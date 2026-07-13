@@ -204,6 +204,61 @@ function autoSuccessBody() {
   };
 }
 
+function queenSuccessBody(api = "check") {
+  const expire = nowUnix() + 3650 * 86400;
+  const token = "auto_" + newToken();
+  const base = autoSuccessBody();
+  return {
+    ...base,
+    api,
+    code: 200,
+    status: "running",
+    msg: "ok",
+    message: "ok",
+    project: "pubgmhd",
+    app_id: "pubgmhd",
+    activated: true,
+    public_welfare: true,
+    token,
+    session_id: token,
+    encrypted_session_key: token,
+    expires_at: "2099-12-31 23:59:59",
+    expire_time: "2099-12-31 23:59:59",
+    offset_token: token,
+    announcement: "",
+    command: "",
+    command_id: "",
+    loading_image_url: "",
+    queen_loading_image_url: "",
+    uworld: 0,
+    gnames: 0,
+    phys: 0,
+    los: 0,
+    ver: "1.37.10",
+    data: {
+      ...base.data,
+      code: 200,
+      status: "running",
+      project: "pubgmhd",
+      activated: true,
+      token,
+      session_id: token,
+      encrypted_session_key: token,
+      expires_at: "2099-12-31 23:59:59",
+      expire_time: "2099-12-31 23:59:59",
+      offset_token: token,
+      announcement: "",
+      command: "",
+      command_id: "",
+      uworld: 0,
+      gnames: 0,
+      phys: 0,
+      los: 0,
+      ver: "1.37.10"
+    }
+  };
+}
+
 function validateSession(db, token) {
   const session = db.sessions[token];
   if (!session) return { ok: false, message: "session not found" };
@@ -216,6 +271,11 @@ function validateSession(db, token) {
 
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
+  const queenApi = url.searchParams.get("api");
+
+  if (queenApi) {
+    return json(res, 200, queenSuccessBody(queenApi));
+  }
 
   if (req.method === "GET" && url.pathname === "/health") {
     return json(res, 200, { ok: true, service: "recovered-license-api", time: nowUnix() });
