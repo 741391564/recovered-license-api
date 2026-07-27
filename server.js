@@ -374,6 +374,83 @@ async function collectJsonLoose(req) {
   }
 }
 
+function queenApiFromPath(pathname) {
+  const p = String(pathname || "").toLowerCase();
+  if (p.endsWith("/challenge.php") || p.endsWith("/api/challenge.php")) return "handshake";
+  if (p.endsWith("/activate_v2.php") || p.endsWith("/api/activate_v2.php")) return "activate";
+  if (p.endsWith("/verify_v2.php") || p.endsWith("/api/verify_v2.php")) return "verify";
+  if (p.endsWith("/heartbeat_v2.php") || p.endsWith("/api/heartbeat_v2.php")) return "heartbeat";
+  if (p.endsWith("/feature_config_v2.php") || p.endsWith("/api/feature_config_v2.php")) return "feature_config";
+  return "";
+}
+
+function pickKami(body) {
+  if (!body || typeof body !== "object") return "";
+  return String(
+    body.kami || body.card || body.cdkey || body.key || body.license ||
+    (body.data && (body.data.kami || body.data.card || body.data.cdkey || body.data.key || body.data.license)) ||
+    ""
+  ).trim();
+}
+
+function pickUdid(body, req) {
+  if (!body || typeof body !== "object") body = {};
+  return String(
+    body.udid || body.device || body.device_id || body.deviceId ||
+    (body.data && (body.data.udid || body.data.device || body.data.device_id || body.data.deviceId)) ||
+    req.headers["x-device-id"] || "auto-device"
+  ).trim();
+}
+
+function validateKamiForQueen(body, req) {
+  if (AUTO_PASS) return { ok: true, key: null, message: "ok" };
+  const kami = pickKami(body);
+  const udid = pickUdid(body, req);
+  if (!kami) return { ok: false, code: 404, message: "??????" };
+  const db = readDb();
+  const kamiHash = sha256(kami);
+  const key = db.keys[kamiHash];
+  if (!key || !key.enabled) return { ok: false, code: 404, message: "??????" };
+  if (key.expire_unix <= nowUnix()) return { ok: false, code: 403, message: "??????" };
+  key.devices = key.devices || [];
+  if (udid && !key.devices.includes(udid)) {
+    if (key.devices.length >= Number(key.max_devices || 1)) {
+      return { ok: false, code: 403, message: "????????" };
+    }
+    key.devices.push(udid);
+    writeDb(db);
+  }
+  return { ok: true, key, kami, udid, message: "ok" };
+}
+
+function queenFailBody(api, message, code = 404) {
+  return {
+    api,
+    success: false,
+    ok: false,
+    valid: false,
+    authorized: false,
+    activated: false,
+    code,
+    ret: code,
+    status: "error",
+    msg: message,
+    message,
+    data: {
+      success: false,
+      ok: false,
+      valid: false,
+      authorized: false,
+      activated: false,
+      code,
+      ret: code,
+      status: "error",
+      msg: message,
+      message
+    }
+  };
+}
+
 async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
   if (api === "handshake") {
@@ -409,11 +486,20 @@ async function handleQueenApi(req, res, api) {
   }
 
   const decrypted = tryDecryptQueenSecurePayload(body);
+  const requestData = (decrypted && decrypted.data) || body || {};
   const session = (decrypted && decrypted.session) || getQueenSessionForRequest(body);
   if (session) {
     session.last_api = api;
     session.last_unix = nowUnix();
   }
+
+  if (api === "activate" || api === "verify") {
+    const state = validateKamiForQueen(requestData, req);
+    if (!state.ok) {
+      return json(res, 200, queenSecureEnvelope(queenFailBody(api, state.message, state.code), session && session.sessionKey));
+    }
+  }
+
   const reply = {
     ...queenSuccessBody(api),
     api,
@@ -438,7 +524,7 @@ function validateSession(db, token) {
 
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
-  const queenApi = url.searchParams.get("api");
+  const queenApi = url.searchParams.get("api") || queenApiFromPath(url.pathname);
 
   if (queenApi) {
     return handleQueenApi(req, res, queenApi);
