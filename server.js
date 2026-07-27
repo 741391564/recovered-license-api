@@ -526,6 +526,8 @@ async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
   const queenApi = url.searchParams.get("api") || queenApiFromPath(url.pathname);
 
+  console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}${url.search} queenApi=${queenApi || "-"} ip=${req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-"}`);
+
   if (queenApi) {
     return handleQueenApi(req, res, queenApi);
   }
@@ -675,3 +677,5 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
+
