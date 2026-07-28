@@ -208,6 +208,17 @@ function queenSuccessBody(api = "check") {
   const expire = nowUnix() + 3650 * 86400;
   const token = "auto_" + newToken();
   const base = autoSuccessBody();
+  const challengeId = "queen_auto";
+  const queenFeatureData = {
+    esp_enabled: false,
+    cfg_ver: "1",
+    cfg: {},
+    fc: DEFAULT_FEATURES,
+    feature_config: DEFAULT_FEATURES,
+    features: DEFAULT_FEATURES,
+    fcfg_ok: true,
+    feature_ready: true
+  };
   return {
     ...base,
     api,
@@ -222,9 +233,11 @@ function queenSuccessBody(api = "check") {
     token,
     session_id: token,
     encrypted_session_key: token,
+    challenge_id: challengeId,
     expires_at: "2099-12-31 23:59:59",
     expire_time: "2099-12-31 23:59:59",
     offset_token: token,
+    ...queenFeatureData,
     announcement: "",
     command: "",
     command_id: "",
@@ -244,9 +257,11 @@ function queenSuccessBody(api = "check") {
       token,
       session_id: token,
       encrypted_session_key: token,
+      challenge_id: challengeId,
       expires_at: "2099-12-31 23:59:59",
       expire_time: "2099-12-31 23:59:59",
       offset_token: token,
+      ...queenFeatureData,
       announcement: "",
       command: "",
       command_id: "",
