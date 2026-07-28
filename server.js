@@ -499,8 +499,7 @@ async function handleQueenApi(req, res, api) {
       const fail = queenFailBody(api, state.message, state.code);
       // activateWithKami 客户端链直接读取顶层 code/msg/data，不走 secure payload 解密。
       // 所以 activate 必须明文返回；verify 仍保留 secure envelope。
-      if (api === "activate") return json(res, 200, fail);
-      return json(res, 200, queenSecureEnvelope(fail, session && session.sessionKey));
+      return json(res, 200, fail);
     }
   }
 
@@ -514,11 +513,9 @@ async function handleQueenApi(req, res, api) {
     server_time: nowUnix()
   };
 
-  // 关键修复：-[NwSession activateWithKami:completion:] 只 parse 顶层 JSON。
-  // 如果返回 {payload, signature}，客户端 code=nil=>0，最终显示“激活失败”。
-  if (api === "activate") return json(res, 200, reply);
-
-  return json(res, 200, queenSecureEnvelope(reply, session && session.sessionKey));
+  // 客户端 verify / heartbeat / feature_config 和 activate 一样，都直接 parse 顶层 JSON。
+  // 所以除 handshake 外，Queen API 全部明文返回 code/msg/data。
+  return json(res, 200, reply);
 }
 
 function validateSession(db, token) {
@@ -686,6 +683,7 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
 
 
 
