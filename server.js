@@ -454,37 +454,28 @@ function queenFailBody(api, message, code = 404) {
 async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
   if (api === "handshake") {
-    let sessionKeyBase64 = "";
-    let sessionKey = null;
-    try {
-      const dec = decryptQueenHandshakeSessionKey(body.encrypted_session_key);
-      sessionKeyBase64 = dec.sessionKeyBase64;
-      sessionKey = dec.sessionKey;
-    } catch {
-      // 兜底：避免握手失败；正常 V7 会带可解密的 encrypted_session_key
-      sessionKey = crypto.randomBytes(32);
-      sessionKeyBase64 = sessionKey.toString("base64");
-    }
     const sessionId = "queen_" + crypto.randomBytes(12).toString("hex");
+    const sessionKey = crypto.randomBytes(32);
     const session = {
       session_id: sessionId,
-      sessionKeyBase64,
+      sessionKeyBase64: sessionKey.toString("base64"),
       sessionKey,
       created_unix: nowUnix(),
       last_api: api
     };
     queenSessions.set(sessionId, session);
     queenLastSession = session;
-    return json(res, 200, queenHandshakeEnvelope({
+    // 当前客户端 challenge / activate / verify / heartbeat / feature_config 都走 parseJSONResponse。
+    // 为避免 code=nil=>失败，challenge 也明文返回顶层 code/msg/data。
+    return json(res, 200, {
       ...queenSuccessBody(api),
       code: 1,
       msg: "ok",
       message: "ok",
       session_id: sessionId,
       server_time: nowUnix()
-    }));
+    });
   }
-
   const decrypted = tryDecryptQueenSecurePayload(body);
   const requestData = (decrypted && decrypted.data) || body || {};
   const session = (decrypted && decrypted.session) || getQueenSessionForRequest(body);
@@ -497,8 +488,8 @@ async function handleQueenApi(req, res, api) {
     const state = validateKamiForQueen(requestData, req);
     if (!state.ok) {
       const fail = queenFailBody(api, state.message, state.code);
-      // activateWithKami 客户端链直接读取顶层 code/msg/data，不走 secure payload 解密。
-      // 所以 activate 必须明文返回；verify 仍保留 secure envelope。
+      // 客户端失败响应也直接读顶层 code/msg/data，不走 secure payload 解密。
+      // 所以这里也统一明文返回。
       return json(res, 200, fail);
     }
   }
@@ -514,7 +505,7 @@ async function handleQueenApi(req, res, api) {
   };
 
   // 客户端 verify / heartbeat / feature_config 和 activate 一样，都直接 parse 顶层 JSON。
-  // 所以除 handshake 外，Queen API 全部明文返回 code/msg/data。
+  // 所以 Queen 五个接口全部明文返回 code/msg/data。
   return json(res, 200, reply);
 }
 
