@@ -496,7 +496,11 @@ async function handleQueenApi(req, res, api) {
   if (api === "activate" || api === "verify") {
     const state = validateKamiForQueen(requestData, req);
     if (!state.ok) {
-      return json(res, 200, queenSecureEnvelope(queenFailBody(api, state.message, state.code), session && session.sessionKey));
+      const fail = queenFailBody(api, state.message, state.code);
+      // activateWithKami 客户端链直接读取顶层 code/msg/data，不走 secure payload 解密。
+      // 所以 activate 必须明文返回；verify 仍保留 secure envelope。
+      if (api === "activate") return json(res, 200, fail);
+      return json(res, 200, queenSecureEnvelope(fail, session && session.sessionKey));
     }
   }
 
@@ -509,6 +513,11 @@ async function handleQueenApi(req, res, api) {
     session_id: session ? session.session_id : "queen_auto",
     server_time: nowUnix()
   };
+
+  // 关键修复：-[NwSession activateWithKami:completion:] 只 parse 顶层 JSON。
+  // 如果返回 {payload, signature}，客户端 code=nil=>0，最终显示“激活失败”。
+  if (api === "activate") return json(res, 200, reply);
+
   return json(res, 200, queenSecureEnvelope(reply, session && session.sessionKey));
 }
 
