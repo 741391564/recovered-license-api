@@ -211,7 +211,7 @@ function queenSuccessBody(api = "check") {
   return {
     ...base,
     api,
-    code: 200,
+    code: 1,
     status: "running",
     msg: "ok",
     message: "ok",
@@ -237,7 +237,7 @@ function queenSuccessBody(api = "check") {
     ver: "1.37.10",
     data: {
       ...base.data,
-      code: 200,
+      code: 1,
       status: "running",
       project: "pubgmhd",
       activated: true,
@@ -477,7 +477,7 @@ async function handleQueenApi(req, res, api) {
     queenLastSession = session;
     return json(res, 200, queenHandshakeEnvelope({
       ...queenSuccessBody(api),
-      code: 200,
+      code: 1,
       msg: "ok",
       message: "ok",
       session_id: sessionId,
@@ -503,7 +503,7 @@ async function handleQueenApi(req, res, api) {
   const reply = {
     ...queenSuccessBody(api),
     api,
-    code: 200,
+    code: 1,
     msg: "ok",
     message: "ok",
     session_id: session ? session.session_id : "queen_auto",
@@ -677,5 +677,6 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
 
 
