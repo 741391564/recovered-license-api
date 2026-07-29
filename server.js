@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV5_JSON_VERIFY_AES_ACTIVATE_20260729";
+const SERVER_VERSION = "QueenHybridV6_LEGACY_MESSAGE_DATE_20260729";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -369,7 +369,7 @@ function queenLegacyPlain(api = "activate") {
   // [8] tokenExpireUnix
   return [
     "23",
-    "ok",
+    "2099-12-31 23:59:59",
     "1",
     "0",
     "0",
