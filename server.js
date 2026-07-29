@@ -356,22 +356,22 @@ function queenLegacyPlain(api = "activate") {
   const expire = nowUnix() + 3650 * 86400;
   const token = "auto_" + newToken();
   // NwSession.parsePayload 按 |||| 拆分：
-  // [0] 可为空/占位
+  // [0] status，必须是 "23" 才会 setSuccess:YES；"99" 会 forceCrash
   // [1] msg
-  // [2] status，必须是 "23" 才会 setSuccess:YES；"99" 会 forceCrash
-  // [3] authMode
+  // [2] authMode
+  // [3] 占位
   // [4] noticeOn
   // [5] noticeContent
   // [6] 占位
   // [7] token
   // [8] tokenExpireUnix
   return [
-    "0",
-    "ok",
     "23",
+    "ok",
     "1",
     "0",
     "0",
+    "",
     "",
     token,
     String(expire)
