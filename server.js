@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV6_LEGACY_MESSAGE_DATE_20260729";
+const SERVER_VERSION = "QueenHybridV7_LEGACY_AES_INNER_HMAC_20260729";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -295,7 +295,9 @@ const queenSessions = new Map();
 let queenLastSession = null;
 const QUEEN_LEGACY_AES_KEY = Buffer.from("K9mP2xR7vL4nQ8wZ", "utf8");
 const QUEEN_LEGACY_AES_IV = Buffer.from("H3jF6bN1cY5tA0sD", "utf8");
-const QUEEN_LEGACY_SEP = "||||";
+const QUEEN_LEGACY_SEP = "|||||";
+const QUEEN_LEGACY_SIG_SEP = "|||||";
+const QUEEN_LEGACY_SIGN_SALT = "ios_verify_2024_salt_x7k2m9p4q1w8e5r";
 
 function hmacHex(key, text) {
   return crypto.createHmac("sha256", key).update(String(text), "utf8").digest("hex");
@@ -357,7 +359,7 @@ function queenSecureEnvelope(body, sessionKey) {
 function queenLegacyPlain(api = "activate") {
   const expire = nowUnix() + 3650 * 86400;
   const token = "auto_" + newToken();
-  // NwSession.parsePayload 按 |||| 拆分：
+  // NwSession.parsePayload 按 ||||| 拆分：
   // [0] status，必须是 "23" 才会 setSuccess:YES；"99" 会 forceCrash
   // [1] msg
   // [2] authMode
@@ -367,7 +369,7 @@ function queenLegacyPlain(api = "activate") {
   // [6] 占位
   // [7] token
   // [8] tokenExpireUnix
-  return [
+  const payload = [
     "23",
     "2099-12-31 23:59:59",
     "1",
@@ -378,6 +380,8 @@ function queenLegacyPlain(api = "activate") {
     token,
     String(expire)
   ].join(QUEEN_LEGACY_SEP);
+  const signature = hmacHex(QUEEN_LEGACY_SIGN_SALT, payload);
+  return payload + QUEEN_LEGACY_SIG_SEP + signature;
 }
 
 function queenLegacyEncryptedText(api = "activate") {
