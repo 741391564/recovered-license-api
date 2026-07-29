@@ -6,6 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
+const SERVER_VERSION = "QueenHybridV5_JSON_VERIFY_AES_ACTIVATE_20260729";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -55,7 +56,8 @@ function json(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": data.length,
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Queen-Server-Version": SERVER_VERSION
   });
   res.end(data);
 }
@@ -396,7 +398,8 @@ function text(res, status, body) {
   res.writeHead(status, {
     "Content-Type": "text/plain; charset=utf-8",
     "Content-Length": data.length,
-    "Cache-Control": "no-store"
+    "Cache-Control": "no-store",
+    "X-Queen-Server-Version": SERVER_VERSION
   });
   res.end(data);
 }
