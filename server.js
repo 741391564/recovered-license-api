@@ -466,30 +466,68 @@ function queenFailBody(api, message, code = 404) {
   };
 }
 
+function queenHybridResponse(api, body, session) {
+  // 兼容两种客户端：
+  // - 明文版：直接读顶层 code/msg/data
+  // - 加密版：读 payload/signature 后走 AES/HMAC 解密
+  try {
+    const envelope = api === "handshake"
+      ? queenHandshakeEnvelope(body)
+      : queenSecureEnvelope(body, session && session.sessionKey);
+    return { ...body, ...envelope };
+  } catch {
+    return body;
+  }
+}
+
 async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
   if (api === "handshake") {
-    const sessionId = "queen_" + crypto.randomBytes(12).toString("hex");
-    const sessionKey = crypto.randomBytes(32);
+    const incomingEncryptedSessionKey =
+      body.encrypted_session_key ||
+      body.encryptedSessionKey ||
+      (body.data && (body.data.encrypted_session_key || body.data.encryptedSessionKey)) ||
+      "";
+    let sessionKey = crypto.randomBytes(32);
+    let client_session_key = false;
+    if (incomingEncryptedSessionKey) {
+      try {
+        const decoded = decryptQueenHandshakeSessionKey(incomingEncryptedSessionKey);
+        sessionKey = decoded.sessionKey;
+        client_session_key = true;
+      } catch (e) {
+        console.log(`[queen] handshake encrypted_session_key decode failed: ${e.message}`);
+      }
+    }
+    const sessionId = String(body.session_id || body.sessionId || "queen_" + crypto.randomBytes(12).toString("hex"));
     const session = {
       session_id: sessionId,
       sessionKeyBase64: sessionKey.toString("base64"),
       sessionKey,
       created_unix: nowUnix(),
-      last_api: api
+      last_api: api,
+      client_session_key
     };
     queenSessions.set(sessionId, session);
     queenLastSession = session;
-    // 当前客户端 challenge / activate / verify / heartbeat / feature_config 都走 parseJSONResponse。
-    // 为避免 code=nil=>失败，challenge 也明文返回顶层 code/msg/data。
-    return json(res, 200, {
+    const reply = {
       ...queenSuccessBody(api),
       code: 1,
       msg: "ok",
       message: "ok",
       session_id: sessionId,
+      encrypted_session_key: incomingEncryptedSessionKey || sessionKey.toString("base64"),
+      client_session_key,
       server_time: nowUnix()
-    });
+    };
+    reply.data = {
+      ...reply.data,
+      session_id: sessionId,
+      encrypted_session_key: reply.encrypted_session_key,
+      client_session_key,
+      server_time: reply.server_time
+    };
+    return json(res, 200, queenHybridResponse(api, reply, session));
   }
   const decrypted = tryDecryptQueenSecurePayload(body);
   const requestData = (decrypted && decrypted.data) || body || {};
@@ -503,9 +541,7 @@ async function handleQueenApi(req, res, api) {
     const state = validateKamiForQueen(requestData, req);
     if (!state.ok) {
       const fail = queenFailBody(api, state.message, state.code);
-      // 客户端失败响应也直接读顶层 code/msg/data，不走 secure payload 解密。
-      // 所以这里也统一明文返回。
-      return json(res, 200, fail);
+      return json(res, 200, queenHybridResponse(api, fail, session));
     }
   }
 
@@ -518,10 +554,12 @@ async function handleQueenApi(req, res, api) {
     session_id: session ? session.session_id : "queen_auto",
     server_time: nowUnix()
   };
-
-  // 客户端 verify / heartbeat / feature_config 和 activate 一样，都直接 parse 顶层 JSON。
-  // 所以 Queen 五个接口全部明文返回 code/msg/data。
-  return json(res, 200, reply);
+  reply.data = {
+    ...reply.data,
+    session_id: reply.session_id,
+    server_time: reply.server_time
+  };
+  return json(res, 200, queenHybridResponse(api, reply, session));
 }
 
 function validateSession(db, token) {
