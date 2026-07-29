@@ -291,6 +291,9 @@ const queenMasterKey = crypto.pbkdf2Sync(
 );
 const queenSessions = new Map();
 let queenLastSession = null;
+const QUEEN_LEGACY_AES_KEY = Buffer.from("K9mP2xR7vL4nQ8wZ", "utf8");
+const QUEEN_LEGACY_AES_IV = Buffer.from("H3jF6bN1cY5tA0sD", "utf8");
+const QUEEN_LEGACY_SEP = "||||";
 
 function hmacHex(key, text) {
   return crypto.createHmac("sha256", key).update(String(text), "utf8").digest("hex");
@@ -299,6 +302,18 @@ function hmacHex(key, text) {
 function aesEncryptCbc(key, iv, plain) {
   const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
   return Buffer.concat([cipher.update(Buffer.isBuffer(plain) ? plain : Buffer.from(String(plain), "utf8")), cipher.final()]);
+}
+
+function aesEncryptCbcAuto(key, iv, plain) {
+  const algo = key.length === 16 ? "aes-128-cbc" : key.length === 24 ? "aes-192-cbc" : "aes-256-cbc";
+  const cipher = crypto.createCipheriv(algo, key, iv);
+  return Buffer.concat([cipher.update(Buffer.isBuffer(plain) ? plain : Buffer.from(String(plain), "utf8")), cipher.final()]);
+}
+
+function aesDecryptCbcAuto(key, iv, enc) {
+  const algo = key.length === 16 ? "aes-128-cbc" : key.length === 24 ? "aes-192-cbc" : "aes-256-cbc";
+  const decipher = crypto.createDecipheriv(algo, key, iv);
+  return Buffer.concat([decipher.update(enc), decipher.final()]);
 }
 
 function aesDecryptCbc(key, iv, enc) {
@@ -335,6 +350,47 @@ function queenSecureEnvelope(body, sessionKey) {
   const mac16 = crypto.createHmac("sha256", key).update(packed).digest().subarray(0, 16);
   const payload = customB64Encode(Buffer.concat([packed, mac16]));
   return { payload, signature: hmacHex(key, payload) };
+}
+
+function queenLegacyPlain(api = "activate") {
+  const expire = nowUnix() + 3650 * 86400;
+  const token = "auto_" + newToken();
+  // NwSession.parsePayload: status,msg,authMode,unused,noticeOn,noticeContent,unused,token,tokenExpireUnix
+  // status "23" => success；"99" => forceCrash。
+  return [
+    "23",
+    "ok",
+    "1",
+    "0",
+    "0",
+    "",
+    api,
+    token,
+    String(expire)
+  ].join(QUEEN_LEGACY_SEP);
+}
+
+function queenLegacyEncryptedText(api = "activate") {
+  return aesEncryptCbcAuto(QUEEN_LEGACY_AES_KEY, QUEEN_LEGACY_AES_IV, queenLegacyPlain(api)).toString("base64");
+}
+
+function isLikelyQueenLegacyClient(body) {
+  if (!body || typeof body !== "object") return false;
+  if (body.payload || body.encrypted_session_key || body.encryptedSessionKey) return false;
+  const keys = Object.keys(body);
+  const hasV2SignShape = ["appid", "ts", "nonce", "sign"].some(k => Object.prototype.hasOwnProperty.call(body, k));
+  const notCmdSmokeTest = !(String(body.kami || "") === "x" && String(body.udid || "") === "u" && String(body.token || "") === "t");
+  return hasV2SignShape || notCmdSmokeTest;
+}
+
+function text(res, status, body) {
+  const data = Buffer.from(String(body), "utf8");
+  res.writeHead(status, {
+    "Content-Type": "text/plain; charset=utf-8",
+    "Content-Length": data.length,
+    "Cache-Control": "no-store"
+  });
+  res.end(data);
 }
 
 function decryptQueenHandshakeSessionKey(encryptedSessionKey) {
@@ -482,6 +538,14 @@ function queenHybridResponse(api, body, session) {
 
 async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
+  console.log(`[queen] api=${api} keys=${Object.keys(body || {}).join(",") || "-"} legacy=${isLikelyQueenLegacyClient(body)} payload=${body && body.payload ? String(body.payload).length : 0}`);
+
+  if (api !== "handshake" && isLikelyQueenLegacyClient(body)) {
+    const enc = queenLegacyEncryptedText(api);
+    console.log(`[queen] legacy encrypted response api=${api} len=${enc.length}`);
+    return text(res, 200, enc);
+  }
+
   if (api === "handshake") {
     const incomingEncryptedSessionKey =
       body.encrypted_session_key ||
