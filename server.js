@@ -548,7 +548,7 @@ async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
   console.log(`[queen] api=${api} keys=${Object.keys(body || {}).join(",") || "-"} legacy=${isLikelyQueenLegacyClient(body)} payload=${body && body.payload ? String(body.payload).length : 0}`);
 
-  if (api !== "handshake" && isLikelyQueenLegacyClient(body)) {
+  if ((api === "activate" || api === "heartbeat") && isLikelyQueenLegacyClient(body)) {
     const enc = queenLegacyEncryptedText(api);
     console.log(`[queen] legacy encrypted response api=${api} len=${enc.length}`);
     return text(res, 200, enc);
