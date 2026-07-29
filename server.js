@@ -355,16 +355,24 @@ function queenSecureEnvelope(body, sessionKey) {
 function queenLegacyPlain(api = "activate") {
   const expire = nowUnix() + 3650 * 86400;
   const token = "auto_" + newToken();
-  // NwSession.parsePayload: status,msg,authMode,unused,noticeOn,noticeContent,unused,token,tokenExpireUnix
-  // status "23" => success；"99" => forceCrash。
+  // NwSession.parsePayload 按 |||| 拆分：
+  // [0] 可为空/占位
+  // [1] msg
+  // [2] status，必须是 "23" 才会 setSuccess:YES；"99" 会 forceCrash
+  // [3] authMode
+  // [4] noticeOn
+  // [5] noticeContent
+  // [6] 占位
+  // [7] token
+  // [8] tokenExpireUnix
   return [
-    "23",
+    "0",
     "ok",
+    "23",
     "1",
     "0",
     "0",
     "",
-    api,
     token,
     String(expire)
   ].join(QUEEN_LEGACY_SEP);
