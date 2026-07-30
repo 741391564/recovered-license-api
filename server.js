@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV8_LEGACY_STATUS_123_20260729";
+const SERVER_VERSION = "QueenHybridV9_FEATURE_READY_TRUE_20260730";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -212,9 +212,28 @@ function queenSuccessBody(api = "check") {
   const base = autoSuccessBody();
   const challengeId = "queen_auto";
   const queenFeatureData = {
-    esp_enabled: false,
+    // fetchFeatureConfigWithCompletion 会检查 data.esp_enabled。
+    // false 虽然代表字段存在，但 applyDictionary 后 ImGuiDrawView.isReady 可能仍是 false，
+    // preflight 会继续走“服务响应异常/配置未就绪”失败分支，所以这里必须 true。
+    esp_enabled: true,
+    enabled: true,
+    ready: true,
     cfg_ver: "1",
-    cfg: {},
+    cfg: {
+      esp_enabled: true,
+      enabled: true,
+      ready: true,
+      radar: true,
+      websocket: true,
+      hud: true,
+      deltaForce: true,
+      shadowTracker: true,
+      lootMinVal: 0,
+      lootMaxVal: 999999,
+      showArmorInfo: true,
+      showHeroInfo: true,
+      showWeaponInfo: true
+    },
     fc: DEFAULT_FEATURES,
     feature_config: DEFAULT_FEATURES,
     features: DEFAULT_FEATURES,
