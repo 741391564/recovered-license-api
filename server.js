@@ -1,4 +1,4 @@
-const http = require("http");
+﻿const http = require("http");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV9_FEATURE_READY_TRUE_20260730";
+const SERVER_VERSION = "QueenHybridV10_JSON_ACTIVATE_HEARTBEAT_20260730";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -408,12 +408,11 @@ function queenLegacyEncryptedText(api = "activate") {
 }
 
 function isLikelyQueenLegacyClient(body) {
+  // V10：默认别再把手机的 V2 登录包误判为旧版 text/plain。
+  // 只有显式带 legacy=1 / format=legacy / x-queen-legacy=1 时才走旧版加密文本。
   if (!body || typeof body !== "object") return false;
   if (body.payload || body.encrypted_session_key || body.encryptedSessionKey) return false;
-  const keys = Object.keys(body);
-  const hasV2SignShape = ["appid", "ts", "nonce", "sign"].some(k => Object.prototype.hasOwnProperty.call(body, k));
-  const notCmdSmokeTest = !(String(body.kami || "") === "x" && String(body.udid || "") === "u" && String(body.token || "") === "t");
-  return hasV2SignShape || notCmdSmokeTest;
+  return body.legacy === 1 || body.legacy === true || body.legacy === "1" || body.format === "legacy";
 }
 
 function text(res, status, body) {
@@ -576,7 +575,7 @@ async function handleQueenApi(req, res, api) {
 
   if ((api === "activate" || api === "heartbeat") && isLikelyQueenLegacyClient(body)) {
     const enc = queenLegacyEncryptedText(api);
-    console.log(`[queen] legacy encrypted response api=${api} len=${enc.length}`);
+    console.log(`[queen] explicit legacy encrypted response api=${api} len=${enc.length}`);
     return text(res, 200, enc);
   }
 
@@ -825,6 +824,7 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
 
 
 
