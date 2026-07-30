@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV7_LEGACY_AES_INNER_HMAC_20260729";
+const SERVER_VERSION = "QueenHybridV8_LEGACY_STATUS_123_20260729";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -360,7 +360,7 @@ function queenLegacyPlain(api = "activate") {
   const expire = nowUnix() + 3650 * 86400;
   const token = "auto_" + newToken();
   // NwSession.parsePayload 按 ||||| 拆分：
-  // [0] status，必须是 "23" 才会 setSuccess:YES；"99" 会 forceCrash
+  // [0] status，客户端真实成功码是 "123"；"999" 会 forceCrash
   // [1] msg
   // [2] authMode
   // [3] 占位
@@ -370,7 +370,7 @@ function queenLegacyPlain(api = "activate") {
   // [7] token
   // [8] tokenExpireUnix
   const payload = [
-    "23",
+    "123",
     "2099-12-31 23:59:59",
     "1",
     "0",
