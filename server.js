@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV10_JSON_ACTIVATE_HEARTBEAT_20260730";
+const SERVER_VERSION = "QueenHybridV11_MASTERKEY_FALLBACK_20260730";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -585,15 +585,20 @@ async function handleQueenApi(req, res, api) {
       body.encryptedSessionKey ||
       (body.data && (body.data.encrypted_session_key || body.data.encryptedSessionKey)) ||
       "";
-    let sessionKey = crypto.randomBytes(32);
+    // V11：别生成手机完全不知道的随机 key。
+    // 如果客户端没传 encrypted_session_key，或者传了但服务端解不开，就统一使用 masterKey。
+    // 否则后续 activate/verify/feature 的 payload 会被服务端随机 key 加密，手机必然“解密失败”。
+    let sessionKey = queenMasterKey;
     let client_session_key = false;
+    let session_key_source = "master_fallback";
     if (incomingEncryptedSessionKey) {
       try {
         const decoded = decryptQueenHandshakeSessionKey(incomingEncryptedSessionKey);
         sessionKey = decoded.sessionKey;
         client_session_key = true;
+        session_key_source = "client_encrypted_session_key";
       } catch (e) {
-        console.log(`[queen] handshake encrypted_session_key decode failed: ${e.message}`);
+        console.log(`[queen] handshake encrypted_session_key decode failed, fallback masterKey: ${e.message}`);
       }
     }
     const sessionId = String(body.session_id || body.sessionId || "queen_" + crypto.randomBytes(12).toString("hex"));
@@ -615,6 +620,7 @@ async function handleQueenApi(req, res, api) {
       session_id: sessionId,
       encrypted_session_key: incomingEncryptedSessionKey || sessionKey.toString("base64"),
       client_session_key,
+      session_key_source,
       server_time: nowUnix()
     };
     reply.data = {
@@ -622,6 +628,7 @@ async function handleQueenApi(req, res, api) {
       session_id: sessionId,
       encrypted_session_key: reply.encrypted_session_key,
       client_session_key,
+      session_key_source,
       server_time: reply.server_time
     };
     return json(res, 200, queenHybridResponse(api, reply, session));
@@ -824,6 +831,7 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
 
 
 
