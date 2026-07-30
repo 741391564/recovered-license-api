@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV13_STRIP_ENCRYPT_FIELDS_20260730";
+const SERVER_VERSION = "QueenHybridV14_CODE200_FEATURE_MARKER_20260730";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -243,7 +243,8 @@ function queenSuccessBody(api = "check") {
   return {
     ...base,
     api,
-    code: 1,
+    code: 200,
+    success_code: 1,
     status: "running",
     msg: "ok",
     message: "ok",
@@ -269,9 +270,13 @@ function queenSuccessBody(api = "check") {
     phys: 0,
     los: 0,
     ver: "1.37.10",
+    bundle_version: "1.37.10.15725.0",
+    feature_marker: "QueenHybridV9_FEATURE_READY_TRUE_20260730",
+    QueenHybridV9_FEATURE_READY_TRUE_20260730: true,
     data: {
       ...base.data,
-      code: 1,
+      code: 200,
+      success_code: 1,
       status: "running",
       project: "pubgmhd",
       activated: true,
@@ -290,7 +295,10 @@ function queenSuccessBody(api = "check") {
       gnames: 0,
       phys: 0,
       los: 0,
-      ver: "1.37.10"
+      ver: "1.37.10",
+      bundle_version: "1.37.10.15725.0",
+      feature_marker: "QueenHybridV9_FEATURE_READY_TRUE_20260730",
+      QueenHybridV9_FEATURE_READY_TRUE_20260730: true
     }
   };
 }
@@ -631,7 +639,8 @@ async function handleQueenApi(req, res, api) {
     queenLastSession = session;
     const reply = {
       ...queenSuccessBody(api),
-      code: 1,
+      code: 200,
+      success_code: 1,
       msg: "ok",
       message: "ok",
       session_id: sessionId,
@@ -669,7 +678,8 @@ async function handleQueenApi(req, res, api) {
   const reply = {
     ...queenSuccessBody(api),
     api,
-    code: 1,
+    code: 200,
+    success_code: 1,
     msg: "ok",
     message: "ok",
     session_id: session ? session.session_id : "queen_auto",
@@ -848,6 +858,10 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
+
+
+
 
 
 
