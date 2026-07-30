@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV14_CODE200_FEATURE_MARKER_20260730";
+const SERVER_VERSION = "QueenHybridV15_UI_DISMISS_CODE1_20260730";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -243,8 +243,11 @@ function queenSuccessBody(api = "check") {
   return {
     ...base,
     api,
-    code: 200,
+    code: 1,
     success_code: 1,
+    http_code: 200,
+    status_code: 200,
+    code200: 200,
     status: "running",
     msg: "ok",
     message: "ok",
@@ -275,8 +278,11 @@ function queenSuccessBody(api = "check") {
     QueenHybridV9_FEATURE_READY_TRUE_20260730: true,
     data: {
       ...base.data,
-      code: 200,
+      code: 1,
       success_code: 1,
+      http_code: 200,
+      status_code: 200,
+      code200: 200,
       status: "running",
       project: "pubgmhd",
       activated: true,
@@ -639,8 +645,11 @@ async function handleQueenApi(req, res, api) {
     queenLastSession = session;
     const reply = {
       ...queenSuccessBody(api),
-      code: 200,
+      code: 1,
       success_code: 1,
+      http_code: 200,
+      status_code: 200,
+      code200: 200,
       msg: "ok",
       message: "ok",
       session_id: sessionId,
@@ -678,8 +687,11 @@ async function handleQueenApi(req, res, api) {
   const reply = {
     ...queenSuccessBody(api),
     api,
-    code: 200,
+    code: 1,
     success_code: 1,
+    http_code: 200,
+    status_code: 200,
+    code200: 200,
     msg: "ok",
     message: "ok",
     session_id: session ? session.session_id : "queen_auto",
@@ -858,6 +870,8 @@ http.createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`recovered-license-api listening on http://127.0.0.1:${PORT}`);
 });
+
+
 
 
 
