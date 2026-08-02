@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV17_CLIENT_CODE1_LEGACY_VERIFY_20260802";
+const SERVER_VERSION = "QueenHybridV18_CLIENT_LEGACY_VERIFY_HEARTBEAT_20260802";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -610,13 +610,13 @@ async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
   console.log(`[queen] api=${api} keys=${Object.keys(body || {}).join(",") || "-"} legacy=${isLikelyQueenLegacyClient(body)} payload=${body && body.payload ? String(body.payload).length : 0}`);
 
-  if (api === "verify") {
+  if (api === "verify" || api === "heartbeat") {
     const enc = queenLegacyEncryptedText(api);
     console.log(`[queen] legacy encrypted response api=${api} len=${enc.length}`);
     return text(res, 200, enc);
   }
 
-  if ((api === "activate" || api === "heartbeat") && isLikelyQueenLegacyClient(body)) {
+  if (api === "activate" && isLikelyQueenLegacyClient(body)) {
     const enc = queenLegacyEncryptedText(api);
     console.log(`[queen] explicit legacy encrypted response api=${api} len=${enc.length}`);
     return text(res, 200, enc);
