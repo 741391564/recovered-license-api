@@ -6,7 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const SERVER_VERSION = "QueenHybridV16_CODE200_UI_FLAGS_20260730";
+const SERVER_VERSION = "QueenHybridV17_CLIENT_CODE1_LEGACY_VERIFY_20260802";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
 
@@ -126,7 +126,7 @@ function autoSuccessBody() {
     vip: true,
     enable: true,
     enabled: true,
-    code: 0,
+    code: 1,
     ret: 0,
     err: 0,
     errno: 0,
@@ -175,7 +175,7 @@ function autoSuccessBody() {
       valid: true,
       authorized: true,
       pass: true,
-      code: 0,
+      code: 1,
       ret: 0,
       status: 1,
       token: token,
@@ -255,7 +255,7 @@ function queenSuccessBody(api = "check") {
   return {
     ...base,
     api,
-    code: 200,
+    code: 1,
     success_code: 1,
     status: "running",
     msg: "ok",
@@ -287,7 +287,7 @@ function queenSuccessBody(api = "check") {
     QueenHybridV9_FEATURE_READY_TRUE_20260730: true,
     data: {
       ...base.data,
-      code: 200,
+      code: 1,
       success_code: 1,
       status: "running",
       project: "pubgmhd",
@@ -610,7 +610,13 @@ async function handleQueenApi(req, res, api) {
   const body = await collectJsonLoose(req);
   console.log(`[queen] api=${api} keys=${Object.keys(body || {}).join(",") || "-"} legacy=${isLikelyQueenLegacyClient(body)} payload=${body && body.payload ? String(body.payload).length : 0}`);
 
-  if ((api === "activate" || api === "heartbeat") && isLikelyQueenLegacyClient(body)) {
+  if (api === "activate" || api === "verify") {
+    const enc = queenLegacyEncryptedText(api);
+    console.log(`[queen] legacy encrypted response api=${api} len=${enc.length}`);
+    return text(res, 200, enc);
+  }
+
+  if (api === "heartbeat" && isLikelyQueenLegacyClient(body)) {
     const enc = queenLegacyEncryptedText(api);
     console.log(`[queen] explicit legacy encrypted response api=${api} len=${enc.length}`);
     return text(res, 200, enc);
@@ -651,7 +657,7 @@ async function handleQueenApi(req, res, api) {
     queenLastSession = session;
     const reply = {
       ...queenSuccessBody(api),
-      code: 200,
+      code: 1,
       success_code: 1,
       msg: "ok",
       message: "ok",
@@ -690,7 +696,7 @@ async function handleQueenApi(req, res, api) {
   const reply = {
     ...queenSuccessBody(api),
     api,
-    code: 200,
+    code: 1,
     success_code: 1,
     msg: "ok",
     message: "ok",
