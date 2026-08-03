@@ -83,6 +83,24 @@ function collectJson(req) {
   });
 }
 
+function collectRawBody(req, limit = 1024 * 1024) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let size = 0;
+    req.on("data", chunk => {
+      size += chunk.length;
+      if (size > limit) {
+        reject(new Error("body too large"));
+        req.destroy();
+        return;
+      }
+      chunks.push(Buffer.from(chunk));
+    });
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
+}
+
 function requireAdmin(req, res) {
   const token = req.headers.authorization || "";
   if (token !== `Bearer ${ADMIN_TOKEN}`) {
@@ -721,11 +739,72 @@ function validateSession(db, token) {
   return { ok: true, session, key };
 }
 
+
+const T3_DIAG_LOG_PATH = path.join(DATA_DIR, "t3_diag.log");
+const T3_DIAG_SELECTED_LINE = process.env.T3_DIAG_SELECTED_LINE || "T3_DIAG_SELECTED_LINE";
+
+function buildT3DiagnosticResponse(selectedLine = T3_DIAG_SELECTED_LINE) {
+  // T3 ????????response.split("\r\n")[count - 4]
+  // ?????? 6 ??? index=2 ? selectedLine ????
+  return [
+    "HTTP/1.1 200 OK",
+    "Content-Type: text/html",
+    String(selectedLine),
+    "A",
+    "B",
+    "C"
+  ].join("\r\n");
+}
+
+function writeT3DiagnosticLog(entry) {
+  ensureDb();
+  fs.appendFileSync(T3_DIAG_LOG_PATH, JSON.stringify(entry) + "\n", "utf8");
+}
+
+async function handleT3Diagnostic(req, res, url) {
+  const raw = await collectRawBody(req);
+  const rawText = raw.toString("utf8");
+  const responseText = buildT3DiagnosticResponse();
+  const parts = responseText.split("\r\n");
+  const selectedIndex = parts.length - 4;
+  const selectedLine = parts[selectedIndex];
+  const entry = {
+    ts: new Date().toISOString(),
+    method: req.method,
+    path: url.pathname,
+    query: url.search,
+    remote: req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-",
+    headers: req.headers,
+    rawBodyLength: raw.length,
+    rawBodyUtf8: rawText,
+    rawBodyHexPrefix: raw.toString("hex").slice(0, 4096),
+    responsePartsCount: parts.length,
+    selectedIndex,
+    selectedLine,
+    responsePreview: responseText
+  };
+  writeT3DiagnosticLog(entry);
+  console.log(`[t3-diag] ${req.method} ${url.pathname}${url.search} bodyLen=${raw.length} parts=${parts.length} selectedIndex=${selectedIndex} selectedLine=${JSON.stringify(selectedLine)}`);
+
+  const data = Buffer.from(responseText, "utf8");
+  res.writeHead(200, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Content-Length": data.length,
+    "Cache-Control": "no-store",
+    "X-T3-Diag": "count-minus-4"
+  });
+  res.end(data);
+}
+
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
   const queenApi = url.searchParams.get("api") || queenApiFromPath(url.pathname);
 
   console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}${url.search} queenApi=${queenApi || "-"} ip=${req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-"}`);
+
+  if (url.pathname === "/HPT3.php" || url.pathname.toLowerCase().endsWith("/hpt3.php")) {
+    return handleT3Diagnostic(req, res, url);
+  }
 
   if (queenApi) {
     return handleQueenApi(req, res, queenApi);
