@@ -12,4 +12,4 @@ services:
       - key: ADMIN_TOKEN
         sync: false
       - key: PUBLIC_BASE_URL
-        value: https://queen-auto-pass.onrender.com
+        value: https://via-license-api.onrender.com
