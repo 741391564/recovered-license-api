@@ -12,7 +12,7 @@ npm start
 默认监听：
 
 ```text
-http://127.0.0.1:8787
+https://queen-auto-pass.onrender.com
 ```
 
 如果 8787 被占用，可以指定端口：
@@ -28,7 +28,7 @@ npm start
 ```powershell
 Invoke-RestMethod `
   -Method POST `
-  -Uri http://127.0.0.1:8787/admin/keys `
+  -Uri https://queen-auto-pass.onrender.com/admin/keys `
   -Headers @{ Authorization = "Bearer change-this-token" } `
   -ContentType "application/json" `
   -Body '{"kami":"TEST-1234-5678","days":7,"max_devices":1}'
@@ -39,7 +39,7 @@ Invoke-RestMethod `
 ```powershell
 Invoke-RestMethod `
   -Method POST `
-  -Uri http://127.0.0.1:8787/api/v1/auth/verify `
+  -Uri https://queen-auto-pass.onrender.com/api/v1/auth/verify `
   -ContentType "application/json" `
   -Body '{"kami":"TEST-1234-5678","udid":"device-001","bundle_id":"com.disguise.chagee.tea"}'
 ```
@@ -61,7 +61,7 @@ Invoke-RestMethod `
 ```powershell
 Invoke-RestMethod `
   -Method POST `
-  -Uri http://127.0.0.1:8787/api/v1/auth/heartbeat `
+  -Uri https://queen-auto-pass.onrender.com/api/v1/auth/heartbeat `
   -Headers @{ Authorization = "Bearer ACCESS_TOKEN" }
 ```
 
@@ -70,7 +70,7 @@ Invoke-RestMethod `
 ```powershell
 Invoke-RestMethod `
   -Method GET `
-  -Uri http://127.0.0.1:8787/api/v1/features `
+  -Uri https://queen-auto-pass.onrender.com/api/v1/features `
   -Headers @{ Authorization = "Bearer ACCESS_TOKEN" }
 ```
 
