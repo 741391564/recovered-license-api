@@ -498,6 +498,114 @@ async function collectJsonLoose(req) {
   }
 }
 
+async function collectBodyLoose(req) {
+  return new Promise(resolve => {
+    let raw = "";
+    req.on("data", chunk => {
+      raw += chunk;
+      if (raw.length > 1024 * 1024) {
+        raw = "";
+        req.destroy();
+      }
+    });
+    req.on("end", () => {
+      const body = {};
+      if (!raw) return resolve({ raw, body });
+      try {
+        return resolve({ raw, body: JSON.parse(raw) });
+      } catch {
+        for (const [k, v] of new URLSearchParams(raw)) body[k] = v;
+        return resolve({ raw, body });
+      }
+    });
+    req.on("error", () => resolve({ raw: "", body: {} }));
+  });
+}
+
+function viaApiFromPath(pathname) {
+  const p = String(pathname || "").toLowerCase();
+  if (p.endsWith("/api/gg.php") || p.endsWith("/gg.php")) return "gg";
+  if (p.endsWith("/api/jihuo.php") || p.endsWith("/jihuo.php")) return "jihuo";
+  if (p.endsWith("/api/code.php") || p.endsWith("/code.php")) return "code";
+  return "";
+}
+
+function viaLegacySuccessBody(api = "gg", requestBody = {}) {
+  const expire = nowUnix() + 3650 * 86400;
+  const expireText = "2099-12-31 23:59:59";
+  const token = "via_" + newToken();
+  const appid = String(requestBody.appid || requestBody.app_id || requestBody.appId || "257002");
+  const kami = String(requestBody.kami || requestBody.card || requestBody.code || requestBody.key || requestBody.km || "123");
+  const device = String(requestBody.udid || requestBody.device || requestBody.device_id || requestBody.imei || "auto-device");
+  const commonData = {
+    api,
+    appid,
+    app_id: appid,
+    success: true,
+    ok: true,
+    valid: true,
+    authorized: true,
+    activated: true,
+    pass: true,
+    code: 1,
+    ret: 0,
+    status: 1,
+    state: 1,
+    msg: "ok",
+    message: "ok",
+    token,
+    access_token: token,
+    auth_token: token,
+    session: token,
+    session_id: token,
+    kami,
+    card: kami,
+    key: kami,
+    device,
+    device_id: device,
+    endtime: expireText,
+    end_time: expireText,
+    expire_time: expireText,
+    expires_at: expireText,
+    expire: expire,
+    expire_unix: expire,
+    expireUnix: expire,
+    timestamp: nowUnix(),
+    server_time: nowUnix(),
+    notice: "",
+    notice_on: false,
+    notice_content: "",
+    title: "VIA项目",
+    content: "",
+    gg: "",
+    announcement: "",
+    features: DEFAULT_FEATURES,
+    config: DEFAULT_FEATURES
+  };
+  return {
+    ...commonData,
+    data: {
+      ...commonData,
+      list: [],
+      rows: []
+    },
+    result: {
+      ...commonData
+    },
+    list: [],
+    rows: [],
+    // 兼容部分 PHP 老接口把 HTTP 成功码也塞进业务字段的写法。
+    http_code: 200,
+    status_code: 200
+  };
+}
+
+async function handleViaLegacyApi(req, res, api) {
+  const { raw, body } = await collectBodyLoose(req);
+  console.log(`[via] api=${api} keys=${Object.keys(body || {}).join(",") || "-"} rawLen=${raw.length}`);
+  return json(res, 200, viaLegacySuccessBody(api, body));
+}
+
 function queenApiFromPath(pathname) {
   const p = String(pathname || "").toLowerCase();
   if (p.endsWith("/challenge.php") || p.endsWith("/api/challenge.php")) return "handshake";
@@ -723,9 +831,14 @@ function validateSession(db, token) {
 
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
+  const viaApi = viaApiFromPath(url.pathname);
   const queenApi = url.searchParams.get("api") || queenApiFromPath(url.pathname);
 
-  console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}${url.search} queenApi=${queenApi || "-"} ip=${req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-"}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}${url.search} viaApi=${viaApi || "-"} queenApi=${queenApi || "-"} ip=${req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-"}`);
+
+  if (viaApi) {
+    return handleViaLegacyApi(req, res, viaApi);
+  }
 
   if (queenApi) {
     return handleQueenApi(req, res, queenApi);
