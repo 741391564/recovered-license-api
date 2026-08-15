@@ -6,6 +6,7 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
+const LULU_REQUIRE_CARD = process.env.LULU_REQUIRE_CARD === "1";
 const SERVER_VERSION = "QueenHybridV17_CLIENT_CODE1_LEGACY_VERIFY_20260802";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
@@ -900,7 +901,7 @@ async function handleLuluCapture(req, res, url) {
     body.kami, body.key, body.card, body.license, body.license_key,
     body.icid, body.icpwd, body.cdkey, body.password
   ].map(value => String(value || "").trim()).find(Boolean);
-  if (!credential) {
+  if (LULU_REQUIRE_CARD && !credential) {
     return json(res, 403, {
       success: false,
       ok: false,
