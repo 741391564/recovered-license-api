@@ -895,6 +895,22 @@ async function handleLuluCapture(req, res, url) {
     response_shape: "generic_auto_success_v1"
   });
   console.log(`[lulu] captured ${req.method} ${url.pathname} keys=${Object.keys(captured.body || {}).join(",") || "-"} rawLen=${captured.raw.length}`);
+  const body = captured.body || {};
+  const credential = [
+    body.kami, body.key, body.card, body.license, body.license_key,
+    body.icid, body.icpwd, body.cdkey, body.password
+  ].map(value => String(value || "").trim()).find(Boolean);
+  if (!credential) {
+    return json(res, 403, {
+      success: false,
+      ok: false,
+      valid: false,
+      authorized: false,
+      code: 403,
+      error: "card_required",
+      message: "card required"
+    });
+  }
   return json(res, 200, autoSuccessBody());
 }
 
