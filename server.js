@@ -905,6 +905,19 @@ async function handle(req, res) {
 
   console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}${url.search} viaApi=${viaApi || "-"} queenApi=${queenApi || "-"} ip=${req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-"}`);
 
+  if (req.method === "GET" && url.pathname === "/debug/lulu/summary") {
+    const rows = readLuluDebug().slice(-20).map(row => ({
+      time_iso: row.time_iso,
+      method: row.method,
+      path: row.path,
+      content_type: row.content_type,
+      body_keys: row.body_keys,
+      raw_len: row.raw_len,
+      response_shape: row.response_shape
+    }));
+    return json(res, 200, { ok: true, count: rows.length, rows });
+  }
+
   if (req.method === "GET" && url.pathname === "/debug/lulu") {
     if (!requireAdmin(req, res)) return;
     const rows = readLuluDebug();
