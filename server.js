@@ -6,11 +6,9 @@ const path = require("path");
 const PORT = Number(process.env.PORT || 8787);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "change-me-admin-token";
 const AUTO_PASS = process.env.AUTO_PASS !== "0";
-const LULU_REQUIRE_CARD = process.env.LULU_REQUIRE_CARD === "1";
 const SERVER_VERSION = "QueenHybridV17_CLIENT_CODE1_LEGACY_VERIFY_20260802";
 const DATA_DIR = path.join(__dirname, "data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
-const LULU_DEBUG_PATH = path.join(DATA_DIR, "lulu_debug.json");
 
 const DEFAULT_FEATURES = {
   radar: true,
@@ -39,31 +37,6 @@ function readDb() {
 
 function writeDb(db) {
   fs.writeFileSync(DB_PATH, JSON.stringify(db, null, 2));
-}
-
-function appendLuluDebug(row) {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    let arr = [];
-    if (fs.existsSync(LULU_DEBUG_PATH)) {
-      arr = JSON.parse(fs.readFileSync(LULU_DEBUG_PATH, "utf8"));
-      if (!Array.isArray(arr)) arr = [];
-    }
-    arr.push({ time_iso: new Date().toISOString(), ...row });
-    fs.writeFileSync(LULU_DEBUG_PATH, JSON.stringify(arr.slice(-120), null, 2));
-  } catch (e) {
-    console.log(`[lulu-debug] write failed: ${e.message}`);
-  }
-}
-
-function readLuluDebug() {
-  try {
-    if (!fs.existsSync(LULU_DEBUG_PATH)) return [];
-    const arr = JSON.parse(fs.readFileSync(LULU_DEBUG_PATH, "utf8"));
-    return Array.isArray(arr) ? arr : [];
-  } catch {
-    return [];
-  }
 }
 
 function nowUnix() {
@@ -107,30 +80,6 @@ function collectJson(req) {
         reject(new Error("invalid json"));
       }
     });
-  });
-}
-
-function collectBodyLoose(req) {
-  return new Promise(resolve => {
-    let raw = "";
-    req.on("data", chunk => {
-      raw += chunk;
-      if (raw.length > 1024 * 1024) {
-        raw = raw.slice(0, 1024 * 1024);
-        req.destroy();
-      }
-    });
-    req.on("end", () => {
-      if (!raw) return resolve({ raw: "", body: {} });
-      try {
-        return resolve({ raw, body: JSON.parse(raw) });
-      } catch {
-        const body = {};
-        for (const [key, value] of new URLSearchParams(raw)) body[key] = value;
-        return resolve({ raw, body });
-      }
-    });
-    req.on("error", () => resolve({ raw, body: {} }));
   });
 }
 
@@ -880,70 +829,12 @@ function validateSession(db, token) {
   return { ok: true, session, key };
 }
 
-async function handleLuluCapture(req, res, url) {
-  const captured = req.method === "GET" ? { raw: "", body: {} } : await collectBodyLoose(req);
-  appendLuluDebug({
-    method: req.method,
-    path: url.pathname,
-    query: Object.fromEntries(url.searchParams.entries()),
-    content_type: String(req.headers["content-type"] || ""),
-    user_agent: String(req.headers["user-agent"] || ""),
-    header_names: Object.keys(req.headers || {}).sort(),
-    body_keys: Object.keys(captured.body || {}),
-    raw_len: captured.raw.length,
-    raw_head_text: captured.raw.slice(0, 4096),
-    raw_head_hex: Buffer.from(captured.raw, "utf8").subarray(0, 512).toString("hex"),
-    response_shape: "generic_auto_success_v1"
-  });
-  console.log(`[lulu] captured ${req.method} ${url.pathname} keys=${Object.keys(captured.body || {}).join(",") || "-"} rawLen=${captured.raw.length}`);
-  const body = captured.body || {};
-  const credential = [
-    body.kami, body.key, body.card, body.license, body.license_key,
-    body.icid, body.icpwd, body.cdkey, body.password
-  ].map(value => String(value || "").trim()).find(Boolean);
-  if (LULU_REQUIRE_CARD && !credential) {
-    return json(res, 403, {
-      success: false,
-      ok: false,
-      valid: false,
-      authorized: false,
-      code: 403,
-      error: "card_required",
-      message: "card required"
-    });
-  }
-  return json(res, 200, autoSuccessBody());
-}
-
 async function handle(req, res) {
   const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
   const viaApi = viaApiFromPath(url.pathname);
   const queenApi = url.searchParams.get("api") || queenApiFromPath(url.pathname);
 
   console.log(`[${new Date().toISOString()}] ${req.method} ${url.pathname}${url.search} viaApi=${viaApi || "-"} queenApi=${queenApi || "-"} ip=${req.headers["x-forwarded-for"] || req.socket.remoteAddress || "-"}`);
-
-  if (req.method === "GET" && url.pathname === "/debug/lulu/summary") {
-    const rows = readLuluDebug().slice(-20).map(row => ({
-      time_iso: row.time_iso,
-      method: row.method,
-      path: row.path,
-      content_type: row.content_type,
-      body_keys: row.body_keys,
-      raw_len: row.raw_len,
-      response_shape: row.response_shape
-    }));
-    return json(res, 200, { ok: true, count: rows.length, rows });
-  }
-
-  if (req.method === "GET" && url.pathname === "/debug/lulu") {
-    if (!requireAdmin(req, res)) return;
-    const rows = readLuluDebug();
-    return json(res, 200, { ok: true, count: rows.length, rows });
-  }
-
-  if (url.pathname === "/lulu" || url.pathname.startsWith("/lulu/")) {
-    return handleLuluCapture(req, res, url);
-  }
 
   if (viaApi) {
     return handleViaLegacyApi(req, res, viaApi);
